@@ -38,6 +38,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_help.h"
 #include "scene/gui/split_container.h"
 
 void ConnectionInfoDialog::ok_pressed() {
@@ -805,6 +806,53 @@ void ScriptTextEditor::_breakpoint_item_pressed(int p_idx) {
 
 void ScriptTextEditor::_breakpoint_toggled(int p_row) {
 	EditorDebuggerNode::get_singleton()->set_breakpoint(script->get_path(), p_row + 1, code_editor->get_text_editor()->is_line_breakpointed(p_row));
+}
+
+Ref<Theme> ScriptTextEditor::_create_tooltip_theme() {
+	Ref<Theme> theme = memnew(Theme); // TODO: Get the global theme instead (e.g. dark mode, light mode)
+
+	// Set background color
+	Ref<StyleBoxFlat> panel_style = memnew(StyleBoxFlat);
+	panel_style->set_bg_color(Color(0.1, 0.1, 0.1, 0.9)); // Set the background color (RGBA)
+	panel_style->set_border_color(Color(0.8, 0.8, 0.8, 0.8)); // Set the border color (RGBA)
+	panel_style->set_border_width_all(1); // Set the border width
+	panel_style->set_corner_radius_all(4); // Set the border radius for curved corners
+
+	theme->set_stylebox("panel", "PanelContainer", panel_style);
+
+	// Set text color
+	Color text_color = Color(1, 1, 1, 1); // Set the text color (RGBA)
+	theme->set_color("default_color", "RichTextLabel", text_color);
+
+	return theme;
+}
+
+void ScriptTextEditor::_update_symbol_tooltip(const Vector2 &mouse_position) {
+	CodeEdit *text_editor = code_editor->get_text_editor();
+	Vector2 line_col = text_editor->get_line_column_at_pos(mouse_position);
+	int row = line_col.y;
+	int col = line_col.x;
+
+	// You might need to implement a new method to fetch symbol information
+	// based on the current row and col in the script.
+	String symbol_info = "Test123"; //get_symbol_info_at(row, col);
+
+	if (!symbol_info.is_empty()) {
+		symbol_tooltip->set_text(symbol_info);
+		//symbol_tooltip->set_position(mouse_position + Vector2(10, 10)); // Offset the tooltip position
+		//symbol_tooltip->move_to_front();
+		symbol_tooltip->set_size(Vector2(198, 98));
+		//symbol_tooltip->show();
+
+		//symbol_tooltip_panel->set_tex
+		symbol_tooltip_panel->set_position(mouse_position + Vector2(10, 10)); // Offset the tooltip position
+		symbol_tooltip_panel->move_to_front();
+		symbol_tooltip_panel->set_size(Vector2(200, 100));
+		symbol_tooltip_panel->show();
+	} else {
+		//symbol_tooltip->hide();
+		symbol_tooltip_panel->hide();
+	}
 }
 
 void ScriptTextEditor::_lookup_symbol(const String &p_symbol, int p_row, int p_column) {
@@ -1780,6 +1828,7 @@ void ScriptTextEditor::drop_data_fw(const Point2 &p_point, const Variant &p_data
 
 void ScriptTextEditor::_text_edit_gui_input(const Ref<InputEvent> &ev) {
 	Ref<InputEventMouseButton> mb = ev;
+	Ref<InputEventMouseMotion> mm = ev;
 	Ref<InputEventKey> k = ev;
 	Point2 local_pos;
 	bool create_menu = false;
@@ -1788,6 +1837,8 @@ void ScriptTextEditor::_text_edit_gui_input(const Ref<InputEvent> &ev) {
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::RIGHT && mb->is_pressed()) {
 		local_pos = mb->get_global_position() - tx->get_global_position();
 		create_menu = true;
+	} else if (mm.is_valid()) {
+		_update_symbol_tooltip(mm->get_position());
 	} else if (k.is_valid() && k->is_action("ui_menu", true)) {
 		tx->adjust_viewport_to_caret(0);
 		local_pos = tx->get_caret_draw_pos(0);
@@ -2234,6 +2285,16 @@ ScriptTextEditor::ScriptTextEditor() {
 	connection_info_dialog = memnew(ConnectionInfoDialog);
 
 	SET_DRAG_FORWARDING_GCD(code_editor->get_text_editor(), ScriptTextEditor);
+
+	// Add Panel + Tooltip; Move this section to inside of 'NOTIFICATION_ENTER_TREE'?
+	symbol_tooltip_panel = memnew(PanelContainer);
+	symbol_tooltip_panel->set_theme(_create_tooltip_theme());
+	add_child(symbol_tooltip_panel);
+	symbol_tooltip = memnew(EditorHelpBit);
+	//add_child(symbol_tooltip);
+	symbol_tooltip_panel->add_child(symbol_tooltip);
+	//symbol_tooltip->hide();
+	symbol_tooltip_panel->hide();
 }
 
 ScriptTextEditor::~ScriptTextEditor() {

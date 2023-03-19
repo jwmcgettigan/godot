@@ -37,7 +37,10 @@
 #include "scene/gui/color_picker.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/tree.h"
+#include "scene/gui/panel_container.h"
+#include "scene/resources/theme.h"
 
+class EditorHelpBit;
 class RichTextLabel;
 
 class ConnectionInfoDialog : public AcceptDialog {
@@ -153,6 +156,11 @@ class ScriptTextEditor : public ScriptEditorBase {
 	};
 
 	void _enable_code_editor();
+
+	PanelContainer *symbol_tooltip_panel = nullptr;
+	EditorHelpBit *symbol_tooltip = nullptr;
+	Ref<Theme> _create_tooltip_theme();
+	void _update_symbol_tooltip(const Vector2 &mouse_position);
 
 protected:
 	void _update_breakpoint_list();
