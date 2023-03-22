@@ -158,9 +158,14 @@ class ScriptTextEditor : public ScriptEditorBase {
 	void _enable_code_editor();
 
 	PanelContainer *symbol_tooltip_panel = nullptr;
-	EditorHelpBit *symbol_tooltip = nullptr;
-	Ref<Theme> _create_tooltip_theme();
+	RichTextLabel *symbol_tooltip_header = nullptr;
+	ScrollContainer *symbol_tooltip_body_scroll = nullptr;
+	RichTextLabel *symbol_tooltip_body = nullptr;
+	Ref<Theme> _create_symbol_tooltip_panel_theme(bool debug);
+	Ref<Theme> _create_symbol_tooltip_header_theme(bool debug);
+	Ref<Theme> _create_symbol_tooltip_body_theme(bool debug);
 	void _update_symbol_tooltip(const Vector2 &mouse_position);
+	String _get_doc_of_word(String symbol_word);
 
 protected:
 	void _update_breakpoint_list();

@@ -35,11 +35,12 @@
 #include "core/os/keyboard.h"
 #include "editor/debugger/editor_debugger_node.h"
 #include "editor/editor_command_palette.h"
+#include "editor/editor_help.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
-#include "editor/editor_help.h"
 #include "scene/gui/split_container.h"
+#include "scene/theme/theme_db.h"
 
 void ConnectionInfoDialog::ok_pressed() {
 }
@@ -808,23 +809,142 @@ void ScriptTextEditor::_breakpoint_toggled(int p_row) {
 	EditorDebuggerNode::get_singleton()->set_breakpoint(script->get_path(), p_row + 1, code_editor->get_text_editor()->is_line_breakpointed(p_row));
 }
 
-Ref<Theme> ScriptTextEditor::_create_tooltip_theme() {
+Ref<Theme> ScriptTextEditor::_create_symbol_tooltip_panel_theme(bool debug = false) {
 	Ref<Theme> theme = memnew(Theme); // TODO: Get the global theme instead (e.g. dark mode, light mode)
+	
+	Ref<StyleBoxFlat> style_box = memnew(StyleBoxFlat);
+	style_box->set_bg_color(Color().html("#363d4a")); // Set the background color (RGBA)
+	style_box->set_border_color(Color(0.8, 0.8, 0.8, 0.8)); // Set the border color (RGBA)
+	style_box->set_border_width_all(1); // Set the border width
+	style_box->set_corner_radius_all(4); // Set the border radius for curved corners
+	style_box->set_content_margin_all(20);
+	theme->set_stylebox("panel", "PanelContainer", style_box);
+	
+	return theme;
+}
 
-	// Set background color
-	Ref<StyleBoxFlat> panel_style = memnew(StyleBoxFlat);
-	panel_style->set_bg_color(Color(0.1, 0.1, 0.1, 0.9)); // Set the background color (RGBA)
-	panel_style->set_border_color(Color(0.8, 0.8, 0.8, 0.8)); // Set the border color (RGBA)
-	panel_style->set_border_width_all(1); // Set the border width
-	panel_style->set_corner_radius_all(4); // Set the border radius for curved corners
-
-	theme->set_stylebox("panel", "PanelContainer", panel_style);
-
-	// Set text color
+Ref<Theme> ScriptTextEditor::_create_symbol_tooltip_header_theme(bool debug = false) {
+	Ref<Theme> theme = memnew(Theme); // TODO: Get the global theme instead (e.g. dark mode, light mode)
+	
 	Color text_color = Color(1, 1, 1, 1); // Set the text color (RGBA)
 	theme->set_color("default_color", "RichTextLabel", text_color);
 
+	Ref<StyleBoxFlat> style_box = memnew(StyleBoxFlat);
+	style_box->set_bg_color(Color().html("#363d4a")); // Set the background color (RGBA)
+	if (debug) {
+		style_box->set_border_color(Color(0.8, 0.8, 0.8, 0.2)); // Set the border color (RGBA)
+		style_box->set_border_width_all(1); // Set the border width
+	} else {
+		style_box->set_border_color(Color(0.8, 0.8, 0.8, 0.2)); // Set the border color (RGBA)
+		style_box->set_border_width(SIDE_BOTTOM, 1);
+	}
+	theme->set_stylebox("normal", "RichTextLabel", style_box);
+	
 	return theme;
+}
+
+static Ref<StyleBoxFlat> make_flat_stylebox(Color p_color, float p_margin_left, float p_margin_top, float p_margin_right, float p_margin_bottom, int p_corner_radius, bool p_draw_center = true, int p_border_width = 0) {
+	float scale = 1.0;
+	Ref<StyleBoxFlat> style(memnew(StyleBoxFlat));
+	style->set_bg_color(p_color);
+	style->set_content_margin_individual(p_margin_left * scale, p_margin_top * scale, p_margin_right * scale, p_margin_bottom * scale);
+
+	style->set_corner_radius_all(p_corner_radius);
+	style->set_anti_aliased(true);
+	// Adjust level of detail based on the corners' effective sizes.
+	style->set_corner_detail(MIN(Math::ceil(1.5 * p_corner_radius), 6) * scale);
+
+	style->set_draw_center(p_draw_center);
+	style->set_border_width_all(p_border_width);
+
+	return style;
+}
+
+Ref<Theme> ScriptTextEditor::_create_symbol_tooltip_body_theme(bool debug = false) {
+	Ref<Theme> theme = memnew(Theme); // TODO: Get the global theme instead (e.g. dark mode, light mode)
+
+	Color text_color = Color(1, 1, 1, 1); // Set the text color (RGBA)
+	theme->set_color("default_color", "RichTextLabel", text_color);
+
+	Ref<StyleBoxFlat> body_style = memnew(StyleBoxFlat);
+	body_style->set_bg_color(Color().html("#363d4a")); // Set the background color (RGBA)
+	if (debug) {
+		body_style->set_border_color(Color(0.8, 0.8, 0.8, 0.2)); // Set the border color (RGBA)
+		body_style->set_border_width_all(1); // Set the border width
+	}
+
+	//Ref<StyleBoxFlat> body_content_style = body_style->duplicate();
+	//body_content_style->set_content_margin(SIDE_RIGHT, 30);
+	//body_content_style->set_content_margin_all(25);
+	//Ref<StyleBoxFlat> body_scroll_style = body_style->duplicate();
+	//body_scroll_style->set_content_margin(SIDE_RIGHT, 30);
+
+	theme->set_stylebox("normal", "RichTextLabel", body_style);
+	theme->set_stylebox("panel", "ScrollContainer", body_style);
+
+
+	// Create a style for the scrollbar
+	Color normal_color = Color(0, 0, 0, 0.1); // Track
+	Color progress_color = Color().html("#a9a9a9"); // Thumb
+	Color focus_color = Color().html("#a9a9a9").lightened(20); // Focused Thumb
+	Ref<StyleBoxFlat> style_h_scrollbar = make_flat_stylebox(normal_color, 0, 4, 0, 4, 0);
+	Ref<StyleBoxFlat> style_v_scrollbar = make_flat_stylebox(normal_color, 4, 0, 4, 0, 0);
+	Ref<StyleBoxFlat> style_scrollbar_grabber = make_flat_stylebox(progress_color, 4, 4, 4, 4, 0);
+	Ref<StyleBoxFlat> style_scrollbar_grabber_highlight = make_flat_stylebox(focus_color, 4, 4, 4, 4, 0);
+	Ref<StyleBoxFlat> style_scrollbar_grabber_pressed = make_flat_stylebox(focus_color * Color(0.75, 0.75, 0.75), 4, 4, 4, 4, 0);
+
+	float scale = 1.0;
+	Ref<StyleBoxFlat> focus = make_flat_stylebox(focus_color, 4, 4, 4, 4, 3, false, 2);
+	focus->set_expand_margin_all(2 * scale);
+
+	// Set the style for the horizontal scrollbar
+	theme->set_stylebox("scroll", "HScrollBar", style_h_scrollbar);
+	theme->set_stylebox("scroll_focus", "HScrollBar", focus);
+	theme->set_stylebox("grabber", "HScrollBar", style_scrollbar_grabber);
+	theme->set_stylebox("grabber_highlight", "HScrollBar", style_scrollbar_grabber_highlight);
+	theme->set_stylebox("grabber_pressed", "HScrollBar", style_scrollbar_grabber_pressed);
+
+	// Set the style for the vertical scrollbar
+	theme->set_stylebox("scroll", "VScrollBar", style_v_scrollbar); // Track
+	theme->set_stylebox("scroll_focus", "VScrollBar", focus);
+	theme->set_stylebox("grabber", "VScrollBar", style_scrollbar_grabber);
+	theme->set_stylebox("grabber_highlight", "VScrollBar", style_scrollbar_grabber_highlight);
+	theme->set_stylebox("grabber_pressed", "VScrollBar", style_scrollbar_grabber_pressed);
+
+
+	return theme;
+}
+
+String ScriptTextEditor::_get_doc_of_word(String symbol_word) {
+	String documentation;
+
+	const HashMap<String, DocData::ClassDoc> &class_list = EditorHelp::get_doc_data()->class_list;
+	for (const KeyValue<String, DocData::ClassDoc> &E : class_list) {
+		const DocData::ClassDoc &class_doc = E.value;
+
+		if (class_doc.name == symbol_word) {
+			documentation = class_doc.description; //class_doc.brief_description + "\n\n" + class_doc.description;
+			break;
+		}
+
+		for (int i = 0; i < class_doc.methods.size(); ++i) {
+			const DocData::MethodDoc &method_doc = class_doc.methods[i];
+
+			if (method_doc.name == symbol_word) {
+				documentation = method_doc.description.strip_edges();
+				break;
+			}
+		}
+
+		if (!documentation.is_empty()) {
+			break;
+		}
+	}
+
+	/*if (!documentation.is_empty()) {
+		print_line(vformat("Documentation for %s:\n%s", symbol_word, documentation));
+	}*/
+	return documentation;
 }
 
 void ScriptTextEditor::_update_symbol_tooltip(const Vector2 &mouse_position) {
@@ -832,25 +952,54 @@ void ScriptTextEditor::_update_symbol_tooltip(const Vector2 &mouse_position) {
 	Vector2 line_col = text_editor->get_line_column_at_pos(mouse_position);
 	int row = line_col.y;
 	int col = line_col.x;
+	String line = text_editor->get_line(row);
 
-	// You might need to implement a new method to fetch symbol information
-	// based on the current row and col in the script.
-	String symbol_info = "Test123"; //get_symbol_info_at(row, col);
+	String symbol_word = text_editor->get_word_at_pos(mouse_position);
+	int symbol_col = text_editor->get_column_pos_of_word(symbol_word, line, text_editor->SEARCH_MATCH_CASE | text_editor->SEARCH_WHOLE_WORDS, 0); //get_column_pos_of_word();
 
-	if (!symbol_info.is_empty()) {
-		symbol_tooltip->set_text(symbol_info);
-		//symbol_tooltip->set_position(mouse_position + Vector2(10, 10)); // Offset the tooltip position
-		//symbol_tooltip->move_to_front();
-		symbol_tooltip->set_size(Vector2(198, 98));
-		//symbol_tooltip->show();
+	String documentation = _get_doc_of_word(symbol_word);
 
-		//symbol_tooltip_panel->set_tex
-		symbol_tooltip_panel->set_position(mouse_position + Vector2(10, 10)); // Offset the tooltip position
+	Vector2 tooltip_pos;
+	if (symbol_col >= 0) {
+		tooltip_pos = text_editor->get_pos_at_line_column(row, symbol_col);
+	} else {
+		tooltip_pos = mouse_position + Vector2(10, 10);
+	}
+	String header_content = symbol_word + " " + String::num(symbol_col);
+	String body_content = documentation; //"NORMAL [b]BOLD[/b] [i]Italics[/i]";
+	//String symbol_info = get_symbol_info_at(row, col);
+	//_lookup_symbol(symbol_info, row, col);
+
+	if (!symbol_word.is_empty() && !documentation.is_empty()) {
+		Vector2 size = Vector2(600, 300);
+		symbol_tooltip_panel->set_position(tooltip_pos); // Offset the tooltip position
 		symbol_tooltip_panel->move_to_front();
-		symbol_tooltip_panel->set_size(Vector2(200, 100));
+		symbol_tooltip_panel->set_size(size);
+
+		int padding = 15;
+		Vector2 paddingVector = Vector2(padding, padding);
+
+		int header_height = 30;
+		symbol_tooltip_header->set_use_bbcode(true);
+		symbol_tooltip_header->set_selection_enabled(true);
+		symbol_tooltip_header->set_text(header_content);
+		symbol_tooltip_header->set_position(paddingVector); // Apply padding to top and left.
+		symbol_tooltip_header->set_size(Vector2(size.x - (padding*2), header_height));
+		//symbol_tooltip_header->set_size(size - (paddingVector * 2)); // Apply padding to bottom and right.
+
+		Vector2 body_size = Vector2(size.x - (padding*2), size.y - header_height - (padding*3));
+		symbol_tooltip_body->clear();
+		EditorHelp()._add_text_to_rt(body_content, symbol_tooltip_body, symbol_tooltip_panel);
+		//symbol_tooltip_body->set_text(body_content);
+		/*symbol_tooltip_body->set_position(Vector2(padding, header_height + (padding*2)));*/
+		symbol_tooltip_body->set_size(body_size);
+		symbol_tooltip_body_scroll->set_custom_minimum_size(body_size - Vector2(2, 2)); //set_size(Vector2(size.x - (padding*2), size.y - header_height - (padding*2)));
+		symbol_tooltip_body_scroll->set_position(Vector2(padding, header_height + (padding*2)));
+		symbol_tooltip_body_scroll->set_size(body_size);
+		//VScrollBar* v_scroll_bar = symbol_tooltip_body_scroll->get_v_scroll_bar();
+
 		symbol_tooltip_panel->show();
 	} else {
-		//symbol_tooltip->hide();
 		symbol_tooltip_panel->hide();
 	}
 }
@@ -2288,13 +2437,26 @@ ScriptTextEditor::ScriptTextEditor() {
 
 	// Add Panel + Tooltip; Move this section to inside of 'NOTIFICATION_ENTER_TREE'?
 	symbol_tooltip_panel = memnew(PanelContainer);
-	symbol_tooltip_panel->set_theme(_create_tooltip_theme());
+	symbol_tooltip_panel->set_theme(_create_symbol_tooltip_panel_theme());
 	add_child(symbol_tooltip_panel);
-	symbol_tooltip = memnew(EditorHelpBit);
-	//add_child(symbol_tooltip);
-	symbol_tooltip_panel->add_child(symbol_tooltip);
-	//symbol_tooltip->hide();
-	symbol_tooltip_panel->hide();
+
+	symbol_tooltip_header = memnew(RichTextLabel);
+	symbol_tooltip_header->set_theme(_create_symbol_tooltip_header_theme(false));
+	symbol_tooltip_panel->add_child(symbol_tooltip_header);
+
+	Ref<Theme> symbol_tooltip_body_theme = _create_symbol_tooltip_body_theme(false);
+	symbol_tooltip_body_scroll = memnew(ScrollContainer);
+	symbol_tooltip_body_scroll->set_theme(symbol_tooltip_body_theme);
+	symbol_tooltip_panel->add_child(symbol_tooltip_body_scroll);
+
+	symbol_tooltip_body = memnew(RichTextLabel);
+	symbol_tooltip_body->set_theme(symbol_tooltip_body_theme);
+	symbol_tooltip_body->set_use_bbcode(true);
+	symbol_tooltip_body->set_selection_enabled(true);
+	//symbol_tooltip_body->set_h_size_flags(TextEdit::SIZE_EXPAND_FILL);
+	//symbol_tooltip_body->set_v_size_flags(TextEdit::SIZE_EXPAND_FILL);
+	symbol_tooltip_body_scroll->add_child(symbol_tooltip_body);
+	/*symbol_tooltip_panel->add_child(symbol_tooltip_body);*/
 }
 
 ScriptTextEditor::~ScriptTextEditor() {

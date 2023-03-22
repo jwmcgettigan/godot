@@ -1819,7 +1819,7 @@ void EditorHelp::_help_callback(const String &p_topic) {
 	}
 }
 
-static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt, Control *p_owner_node) {
+void EditorHelp::_add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt, Control *p_owner_node) {
 	DocTools *doc = EditorHelp::get_doc_data();
 	String base_path;
 
@@ -2397,7 +2397,7 @@ void EditorHelpBit::_notification(int p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
 			rich_text->add_theme_color_override("selection_color", get_theme_color(SNAME("selection_color"), SNAME("EditorHelp")));
 			rich_text->clear();
-			_add_text_to_rt(text, rich_text, this);
+			EditorHelp()._add_text_to_rt(text, rich_text, this);
 			rich_text->reset_size(); // Force recalculating size after parsing bbcode.
 		} break;
 	}
@@ -2406,7 +2406,7 @@ void EditorHelpBit::_notification(int p_what) {
 void EditorHelpBit::set_text(const String &p_text) {
 	text = p_text;
 	rich_text->clear();
-	_add_text_to_rt(text, rich_text, this);
+	EditorHelp()._add_text_to_rt(text, rich_text, this);
 }
 
 EditorHelpBit::EditorHelpBit() {

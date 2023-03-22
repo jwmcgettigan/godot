@@ -206,6 +206,8 @@ public:
 	static DocTools *get_doc_data();
 	static void cleanup_doc();
 
+	void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt, Control *p_owner_node);
+
 	void go_to_help(const String &p_help);
 	void go_to_class(const String &p_class, int p_scroll = 0);
 	void update_doc();

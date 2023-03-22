@@ -121,6 +121,8 @@ public:
 		SEARCH_BACKWARDS = 4
 	};
 
+	int get_column_pos_of_word(const String &p_key, const String &p_search, uint32_t p_search_flags, int p_from_column) const;
+
 private:
 	struct GutterInfo {
 		GutterType type = GutterType::GUTTER_TYPE_STRING;
@@ -361,8 +363,6 @@ private:
 
 	String search_text = "";
 	uint32_t search_flags = 0;
-
-	int _get_column_pos_of_word(const String &p_key, const String &p_search, uint32_t p_search_flags, int p_from_column) const;
 
 	/* Tooltip. */
 	Callable tooltip_callback;
